@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.flightmanagement.mapper.CrewMemberMapper">
+
+    <!-- 分页查询机组成员 -->
+    <select id="selectPage" resultType="com.flightmanagement.entity.CrewMember">
+        SELECT * FROM crew_member 
+        WHERE deleted = 0
+        <if test="name != null and name != ''">
+            AND name LIKE CONCAT('%', #{name}, '%')
+        </if>
+        <if test="position != null and position != ''">
+            AND position = #{position}
+        </if>
+        <if test="qualificationLevel != null and qualificationLevel != ''">
+            AND qualification_level = #{qualificationLevel}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据岗位查询机组成员 -->
+    <select id="selectByPosition" resultType="com.flightmanagement.entity.CrewMember">
+        SELECT * FROM crew_member 
+        WHERE deleted = 0 AND position = #{position}
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 根据资质等级查询机组成员 -->
+    <select id="selectByQualificationLevel" resultType="com.flightmanagement.entity.CrewMember">
+        SELECT * FROM crew_member 
+        WHERE deleted = 0 AND qualification_level = #{qualificationLevel}
+        ORDER BY create_time DESC
+    </select>
+
+</mapper> 

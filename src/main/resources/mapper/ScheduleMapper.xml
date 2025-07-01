@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.flightmanagement.mapper.ScheduleMapper">
+
+    <!-- 结果映射 -->
+    <resultMap id="ScheduleWithDetailsMap" type="com.flightmanagement.entity.Schedule">
+        <id column="id" property="id"/>
+        <result column="flight_id" property="flightId"/>
+        <result column="crew_member_id" property="crewMemberId"/>
+        <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="work_hours" property="workHours"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+        <result column="deleted" property="deleted"/>
+        <!-- 关联的航班信息 -->
+        <association property="flight" javaType="com.flightmanagement.entity.Flight">
+            <id column="flight_id" property="id"/>
+            <result column="flight_number" property="flightNumber"/>
+            <result column="departure_airport" property="departureAirport"/>
+            <result column="arrival_airport" property="arrivalAirport"/>
+            <result column="departure_time" property="departureTime"/>
+            <result column="arrival_time" property="arrivalTime"/>
+        </association>
+        <!-- 关联的机组成员信息 -->
+        <association property="crewMember" javaType="com.flightmanagement.entity.CrewMember">
+            <id column="crew_member_id" property="id"/>
+            <result column="crew_member_name" property="name"/>
+            <result column="crew_member_position" property="position"/>
+        </association>
+    </resultMap>
+
+    <!-- 分页查询排班（包含关联信息） -->
+    <select id="selectPageWithDetails" resultMap="ScheduleWithDetailsMap">
+        SELECT s.*, c.name as crew_member_name, c.position as crew_member_position,
+               f.flight_number, f.departure_airport, f.arrival_airport, f.departure_time, f.arrival_time
+        FROM schedule s
+        LEFT JOIN crew_member c ON s.crew_member_id = c.id
+        LEFT JOIN flight f ON s.flight_id = f.id
+        WHERE s.deleted = 0
+        <if test="crewMemberId != null">
+            AND s.crew_member_id = #{crewMemberId}
+        </if>
+        <if test="flightId != null">
+            AND s.flight_id = #{flightId}
+        </if>
+        <if test="flightNumber != null and flightNumber != ''">
+            AND f.flight_number LIKE CONCAT('%', #{flightNumber}, '%')
+        </if>
+        <if test="crewMemberName != null and crewMemberName != ''">
+            AND c.name LIKE CONCAT('%', #{crewMemberName}, '%')
+        </if>
+        <if test="startDate != null">
+            AND f.departure_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND f.departure_time &lt;= #{endDate}
+        </if>
+        ORDER BY f.departure_time DESC, s.create_time DESC
+    </select>
+
+    <!-- 根据机组成员ID查询排班 -->
+    <select id="selectByCrewMemberId" resultType="com.flightmanagement.entity.Schedule">
+        SELECT s.*, f.flight_number, f.departure_airport, f.arrival_airport, f.departure_time, f.arrival_time
+        FROM schedule s
+        LEFT JOIN flight f ON s.flight_id = f.id
+        WHERE s.deleted = 0 AND s.crew_member_id = #{crewMemberId}
+        <if test="startDate != null">
+            AND f.departure_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND f.departure_time &lt;= #{endDate}
+        </if>
+        ORDER BY f.departure_time ASC
+    </select>
+
+    <!-- 根据航班ID查询排班 -->
+    <select id="selectByFlightId" resultType="com.flightmanagement.entity.Schedule">
+        SELECT s.*, c.name as crew_member_name, c.position as crew_member_position
+        FROM schedule s
+        LEFT JOIN crew_member c ON s.crew_member_id = c.id
+        WHERE s.deleted = 0 AND s.flight_id = #{flightId}
+        ORDER BY s.create_time ASC
+    </select>
+
+    <!-- 检查时间冲突 -->
+    <select id="checkTimeConflict" resultType="com.flightmanagement.entity.Schedule">
+        SELECT s.* FROM schedule s
+        LEFT JOIN flight f ON s.flight_id = f.id
+        WHERE s.deleted = 0 
+        AND s.crew_member_id = #{crewMemberId}
+        AND (
+            (f.departure_time &lt;= #{startTime} AND f.arrival_time > #{startTime}) OR
+            (f.departure_time &lt; #{endTime} AND f.arrival_time >= #{endTime}) OR
+            (f.departure_time >= #{startTime} AND f.arrival_time &lt;= #{endTime})
+        )
+        <if test="excludeId != null">
+            AND s.id != #{excludeId}
+        </if>
+    </select>
+
+    <!-- 统计工作时间 -->
+    <select id="sumWorkHours" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, f.departure_time, f.arrival_time)) / 60, 0)
+        FROM schedule s
+        LEFT JOIN flight f ON s.flight_id = f.id
+        WHERE s.deleted = 0 
+        AND s.crew_member_id = #{crewMemberId}
+        <if test="startDate != null">
+            AND f.departure_time >= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND f.departure_time &lt;= #{endDate}
+        </if>
+    </select>
+
+</mapper> 
